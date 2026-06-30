@@ -864,6 +864,10 @@ void BeginDrawing(void)
     CORE.Time.update = CORE.Time.current - CORE.Time.previous;
     CORE.Time.previous = CORE.Time.current;
 
+#if defined(GRAPHICS_API_VULKAN)
+    rvkBeginFrame();                    // Acquire swapchain image, open command buffer + dynamic-rendering pass
+#endif
+
     rlLoadIdentity();                   // Reset current matrix (modelview)
     rlMultMatrixf(MatrixToFloat(CORE.Window.screenScale)); // Apply screen scaling
 
@@ -878,6 +882,10 @@ void EndDrawing(void)
 
 #if SUPPORT_AUTOMATION_EVENTS
     if (automationEventRecording) RecordAutomationEvent();    // Event recording
+#endif
+
+#if defined(GRAPHICS_API_VULKAN)
+    rvkEndFrame();                  // End dynamic-rendering pass, submit command buffer
 #endif
 
 #if !SUPPORT_CUSTOM_FRAME_CONTROL

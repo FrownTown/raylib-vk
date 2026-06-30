@@ -270,6 +270,7 @@ void rvkBeginFrame(void)
                                          frame.imageAvailable, VK_NULL_HANDLE, &g_rvk.currentImageIndex);
     if (acq == VK_ERROR_OUT_OF_DATE_KHR) { rvkResizeSwapchain(g_rvk.fbWidth, g_rvk.fbHeight); return; }
     else if (acq != VK_SUCCESS && acq != VK_SUBOPTIMAL_KHR) VK_CHECK(acq);
+    g_rvk.frameAcquired = true;
 
     VK_CHECK(vkResetFences(g_rvk.device, 1, &frame.inFlight));
     VK_CHECK(vkResetCommandBuffer(frame.cmd, 0));
@@ -334,6 +335,8 @@ void rvkEndFrame(void)
 
 void rvkPresent(void)
 {
+    if (!g_rvk.frameAcquired) return;     // begin-frame skipped (swapchain was out of date)
+    g_rvk.frameAcquired = false;
     RvkFrame &frame = g_rvk.frames[g_rvk.frameIndex];
     VkPresentInfoKHR pi{ VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
     pi.waitSemaphoreCount = 1;
@@ -366,8 +369,29 @@ void rvkClearColor(unsigned char r, unsigned char g, unsigned char b, unsigned c
     s_clearColor.color.float32[3] = a/255.0f;
 }
 
-// The actual clear happens via LOAD_OP_CLEAR at rvkBeginFrame; mid-frame clears are a TODO(P7).
-void rvkClearScreenBuffers(void) { /* handled by dynamic-rendering loadOp clear */ }
+// raylib's ClearBackground() calls this after BeginDrawing(), i.e. after the dynamic-rendering
+// pass is already open. Issue an in-pass clear (vkCmdClearAttachments) so the clear respects
+// call order and uses the color set by the immediately preceding rvkClearColor().
+void rvkClearScreenBuffers(void)
+{
+    if (!g_rvk.frameActive) return;
+    VkClearAttachment clears[2]{};
+    uint32_t count = 0;
+    clears[count].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    clears[count].colorAttachment = 0;
+    clears[count].clearValue = s_clearColor;
+    count++;
+    if (g_rvk.state.depthFormat != VK_FORMAT_UNDEFINED) {
+        clears[count].aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        clears[count].clearValue.depthStencil = { 1.0f, 0 };
+        count++;
+    }
+    VkClearRect rect{};
+    rect.rect = { {0, 0}, g_rvk.swapchainExtent };
+    rect.baseArrayLayer = 0;
+    rect.layerCount = 1;
+    vkCmdClearAttachments(rvkCurrentFrame().cmd, count, clears, 1, &rect);
+}
 
 void rvkCheckErrors(void) { /* validation layers report asynchronously; no-op */ }
 

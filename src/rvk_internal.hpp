@@ -170,7 +170,8 @@ struct RvkContext {
     // Frames in flight
     std::array<RvkFrame, RVK_FRAMES_IN_FLIGHT> frames;
     uint32_t         frameIndex = 0;
-    bool             frameActive = false;        // between rvkBeginFrame/rvkEndFrame
+    bool             frameActive = false;        // between rvkBeginFrame/rvkEndFrame (pass open)
+    bool             frameAcquired = false;       // a swapchain image is acquired & awaiting present
 
     // Pipeline cache (rvk_pipeline.cpp)
     VkPipelineCache  pipelineCache = VK_NULL_HANDLE;
