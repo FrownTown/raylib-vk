@@ -104,6 +104,14 @@
 *
 **********************************************************************************************/
 
+// When the Vulkan backend is selected, route the entire rlgl API through rvk.h.
+// rvk.h re-declares the rl* surface (via its rlgl-compat shim) and is implemented by
+// src/rvk_*.cpp, so every existing `#include "rlgl.h"` site uses Vulkan unchanged.
+#if defined(GRAPHICS_API_VULKAN)
+    #include "rvk.h"
+    #define RLGL_H      // suppress the OpenGL implementation below
+#endif
+
 #ifndef RLGL_H
 #define RLGL_H
 

@@ -20,6 +20,9 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
+# Vulkan backend (rvk) - replaces the OpenGL rlgl layer when enabled (desktop GLFW only)
+option(GRAPHICS_API_VULKAN "Use the Vulkan 1.3 backend (rvk) instead of OpenGL/rlgl" OFF)
+
 # Used as public API to be included into other projects
 set(raylib_public_headers
     raylib.h
@@ -28,6 +31,11 @@ set(raylib_public_headers
     raymath.h
     )
 
+if (GRAPHICS_API_VULKAN)
+    # Expose the rvk public header alongside the others
+    list(APPEND raylib_public_headers ${CMAKE_SOURCE_DIR}/include/rvk.h)
+endif ()
+
 # Sources to be compiled
 set(raylib_sources
     rcore.c
@@ -35,6 +43,12 @@ set(raylib_sources
     rtext.c
     rtextures.c
     )
+
+# Pull in the Vulkan backend sources (rvk_*.cpp) and their dependencies
+if (GRAPHICS_API_VULKAN)
+    include(${CMAKE_SOURCE_DIR}/cmake/VulkanBackend.cmake)
+    list(APPEND raylib_sources ${RVK_SOURCES})
+endif ()
 
 # Only build raudio if it's enabled
 if (NOT DEFINED SUPPORT_MODULE_RAUDIO OR SUPPORT_MODULE_RAUDIO)
@@ -63,6 +77,11 @@ else ()
 endif ()
 
 add_library(raylib ${raylib_sources} ${raylib_public_headers})
+
+# Apply Vulkan backend include dirs, C++20, defines and link libraries to the target
+if (GRAPHICS_API_VULKAN)
+    rvk_configure_target(raylib)
+endif ()
 
 if (NOT BUILD_SHARED_LIBS)
     MESSAGE(STATUS "Building raylib static library")
